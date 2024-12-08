@@ -1,0 +1,70 @@
+# Criando Jobs (Tarefas) - Passos de execução
+# cada job possui um elemento obrigatório: script e dentro de um scrit podemos ter mais de um comando.
+
+# $CI_COMMIT_BRANCH -> Guarda a branch que estamos trabalhando atualmente
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
+      when: never
+    - when: always
+
+# Caso tenha algum erro, não irá dar continuidade na execução dos JOBS, pois precisa respeitar 
+# a sequência das stages (ESTÁGIOS), definidas nas stages  de cada Job.
+# Diferente de só ter JOBS - que ocorrem em paralelo (Ao mesmo tempo)
+stages:
+  - teste
+  - build
+  - deploy
+
+
+# script: Permitem executar qualquer comando (no nosso caso do sistema linux que é o mais comum)
+# - são executados de uma máquina virtual do gitlab
+executar_teste:
+  stage: teste
+  before_script: # Irá executar antes de iniciar os scripts
+    - echo "Preparando testes..."   
+    - chmod +x ./script.sh # Dando permissão de execução para o script 
+  script:
+    - ./script.sh # Executar os comandos que estão definidos nesse arquivo
+
+  after_script: # executar após finalizar os scripts
+    - echo "Apagando arquivos temporários..."
+
+# Criando Jobs que podem ser executados em paralelo (ao mesmo tempo)
+executar_teste2:
+  stage: teste
+  script:
+    - echo "Executando testes 2..."   
+
+
+criar_imagens:
+  stage: build
+  script:
+    - echo "Criando as imagens..."
+# Caso ocorra um erro no gitlab irá mostrar onde está, em qual job e quais JOBS foram 
+# puladas por causa do erro da JOB em si, pois está usando o conceito de STAGES/ESTÁGIOS e 
+# deve-se respeitar a ordem de execução.
+# - echo_erro "Criando as imagens..."
+
+# REGRA: push_images só pode iniciar se criar_imagens estiver okay (Dependência entre jobs)
+# needs: 
+# - Podemos indicar mais de uma dependência entre os jobs
+# - Não permite que outro job inicie se o que ele NECESSITA estiver com erro.
+# ESPECIFICANDO A EXECUÇÃO DO JOB EM UMA DETERMINADA BRANCH:
+# only: [Apenas] exceute esse JOB se for na branch main
+#  - main
+push_images:
+  needs: # Podemos indicar mais de uma dependência entre os jobs
+    - criar_imagens # Só inicie se o criar_imagens estiver okay
+  stage: build
+  script:
+    - echo "Realizando upload das imagens..."
+
+
+kubernetes:
+  stage: deploy
+  script:
+    - echo "Executando deploy..."
+
+
+
